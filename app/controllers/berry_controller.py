@@ -30,7 +30,7 @@ async def get_berry_stats_histogram(request: Request):
 @router.get("/apiInfo")
 async def get_api_info():
     return {
-        "host": os.getenv("API_HOST"),
-        "port": os.getenv("API_PORT"),
-        "pokeapi_base_url": os.getenv("POKEAPI_BASE_URL")
+        "host": os.getenv("API_HOST", "0.0.0.0"),
+        "port": os.getenv("API_PORT", "8000"),
+        "pokeapi_base_url": os.getenv("POKEAPI_BASE_URL", "https://pokeapi.co/api/v2")
     }

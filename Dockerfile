@@ -1,20 +1,13 @@
-FROM python:3.10
+# Etapa de construcción
+FROM python:3.10 AS builder
+WORKDIR /var/app/staging
+COPY requirements.txt .
+RUN pip install --user -r requirements.txt
 
-WORKDIR /app
-
-COPY pyproject.toml poetry.lock ./
-RUN pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-dev
-
+# Etapa final
+FROM python:3.10-slim
+WORKDIR /var/app/current
+COPY --from=builder /root/.local /root/.local
 COPY . .
-
-# Establece las variables de entorno predeterminadas
-ENV API_HOST=0.0.0.0
-ENV API_PORT=8000
-ENV POKEAPI_BASE_URL=https://pokeapi.co/api/v2
-ENV BERRY_ENDPOINT=/berry
-ENV CACHE_TTL=3600
-ENV CACHE_MAXSIZE=1
-
+ENV PATH=/root/.local/bin:$PATH
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
