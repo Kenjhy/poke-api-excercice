@@ -1,52 +1,94 @@
 import pytest
+from unittest.mock import Mock
 from app.services.berry_service import BerryService
 from app.models.berry_stats_model import BerryStats
-import time
+from app.models.berry_model import Berry
 
 
 @pytest.fixture
-def berry_service():
-    return BerryService()
+def mock_repository():
+    return Mock()
 
 
-def test_get_berry_stats(berry_service):
-    # First call
-    start_time = time.time()
+@pytest.fixture
+def berry_service(mock_repository):
+    service = BerryService()
+    service.repository = mock_repository
+    yield service
+    service.clear_cache()  # Clear cache after each test
+
+
+def test_get_berry_stats(berry_service, mock_repository):
+    mock_berries = [
+        Berry(name="cheri", growth_time=3),
+        Berry(name="chesto", growth_time=3),
+        Berry(name="pecha", growth_time=3),
+        Berry(name="rawst", growth_time=3),
+        Berry(name="aspear", growth_time=3),
+    ]
+    mock_repository.get_all_berries.return_value = mock_berries
+
     stats1 = berry_service.get_berry_stats()
-    end_time = time.time()
-    first_call_duration = end_time - start_time
+    stats2 = berry_service.get_berry_stats()
 
     assert isinstance(stats1, BerryStats)
-    assert len(stats1.berries_names) > 0
-    assert stats1.min_growth_time <= stats1.max_growth_time
-    assert stats1.variance_growth_time >= 0
-    assert all(isinstance(freq, int) for freq in stats1.frequency_growth_time.values())
+    assert len(stats1.berries_names) == 5
+    assert stats1.min_growth_time == 3
+    assert stats1.max_growth_time == 3
+    assert stats1.median_growth_time == 3
+    assert stats1.variance_growth_time == 0
+    assert stats1.mean_growth_time == 3
+    assert stats1.frequency_growth_time == {3: 5}
 
-    # Second call (should be faster due to caching)
-    start_time = time.time()
-    stats2 = berry_service.get_berry_stats()
-    end_time = time.time()
-    second_call_duration = end_time - start_time
-
-    # The second call should be significantly faster
-    assert second_call_duration < first_call_duration
-
-    # The results should be the same
     assert stats1 == stats2
+    mock_repository.get_all_berries.assert_called_once()
 
 
-def test_berry_stats_structure(berry_service):
-    stats = berry_service.get_berry_stats()
-    
-    assert isinstance(stats.berries_names, list)
-    assert isinstance(stats.min_growth_time, int)
-    assert isinstance(stats.median_growth_time, float)
-    assert isinstance(stats.max_growth_time, int)
-    assert isinstance(stats.variance_growth_time, float)
-    assert isinstance(stats.mean_growth_time, float)
-    assert isinstance(stats.frequency_growth_time, dict)
-    assert all(isinstance(k, int) and isinstance(v, int) for k, v in stats.frequency_growth_time.items())
+@pytest.mark.parametrize("berries,expected", [
+    (
+        [Berry(name="test", growth_time=5)],
+        BerryStats(
+            berries_names=["test"],
+            min_growth_time=5,
+            median_growth_time=5.0,
+            max_growth_time=5,
+            variance_growth_time=0.0,
+            mean_growth_time=5.0,
+            frequency_growth_time={5: 1}
+        )
+    ),
+    (
+        [Berry(name="test1", growth_time=3), Berry(name="test2", growth_time=7)],
+        BerryStats(
+            berries_names=["test1", "test2"],
+            min_growth_time=3,
+            median_growth_time=5.0,
+            max_growth_time=7,
+            variance_growth_time=8.0,
+            mean_growth_time=5.0,
+            frequency_growth_time={3: 1, 7: 1}
+        )
+    ),
+])
+def test_get_berry_stats_calculations(berry_service, mock_repository, berries, expected):
+    mock_repository.get_all_berries.return_value = berries
+    result = berry_service.get_berry_stats()
+    assert result.berries_names == expected.berries_names
+    assert result.min_growth_time == expected.min_growth_time
+    assert result.max_growth_time == expected.max_growth_time
+    assert result.median_growth_time == pytest.approx(expected.median_growth_time)
+    assert result.variance_growth_time == pytest.approx(expected.variance_growth_time)
+    assert result.mean_growth_time == pytest.approx(expected.mean_growth_time)
+    assert result.frequency_growth_time == expected.frequency_growth_time
 
-    assert stats.min_growth_time <= stats.median_growth_time <= stats.max_growth_time
-    assert stats.variance_growth_time >= 0
-    assert sum(stats.frequency_growth_time.values()) == len(stats.berries_names)
+
+def test_empty_berry_list(berry_service, mock_repository):
+    mock_repository.get_all_berries.return_value = []
+    with pytest.raises(ValueError, match="No berries found"):
+        berry_service.get_berry_stats()
+
+
+@pytest.fixture(autouse=True)
+def set_env_vars(monkeypatch):
+    monkeypatch.setenv("CACHE_MAXSIZE", "1")
+    monkeypatch.setenv("CACHE_TTL", "3600")
