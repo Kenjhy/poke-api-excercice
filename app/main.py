@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 import os
 
-# Intenta cargar las variables de entorno desde .env si el archivo existe
+# Try to load the environment variable from .env if the file exist
 if os.path.exists(".env"):
     load_dotenv()
 

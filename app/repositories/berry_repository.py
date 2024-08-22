@@ -29,8 +29,7 @@ class BerryRepository:
                 response = requests.get(next_url)
                 response.raise_for_status()
             except requests.RequestException as e:
-                # Manejo de error
-                raise Exception(f"Error al obtener datos de PokeAPI: {e}")
+                raise Exception(f"Error getting data from PokeAPI: {e}")
 
             data = response.json()
             
