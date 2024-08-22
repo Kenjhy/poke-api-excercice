@@ -5,3 +5,7 @@ __pycache__
 .pytest_cache
 .idea/
 *.log
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
